@@ -1,0 +1,5 @@
+PyQt5>=5.15
+python-xlib>=0.33
+flask>=3.0
+flask-socketio>=5.0
+simple-websocket>=1.0

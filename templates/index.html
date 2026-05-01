@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Overlay – Zeichenwerkzeug</title>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: system-ui, sans-serif;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Toolbar ── */
+  #toolbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 16px;
+    background: #16213e;
+    border-bottom: 1px solid #0f3460;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  #toolbar label { font-size: 0.8rem; color: #aaa; }
+
+  .tool-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  #colorPicker {
+    width: 40px; height: 32px;
+    border: 2px solid #444;
+    border-radius: 6px;
+    cursor: pointer;
+    background: none;
+    padding: 2px;
+  }
+
+  input[type=range] {
+    width: 100px;
+    accent-color: #e94560;
+  }
+
+  #widthPreview {
+    width: 80px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #widthPreview canvas { display: block; }
+
+  #clearBtn, #refreshBtn {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: opacity 0.15s;
+  }
+  #clearBtn { background: #e94560; color: #fff; }
+  #refreshBtn { background: #0f3460; color: #e0e0e0; }
+  #clearBtn:hover, #refreshBtn:hover { opacity: 0.85; }
+
+  .tool-group span { font-size: 0.7rem; color: #888; }
+
+  /* ── Main layout ── */
+  #main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Window list ── */
+  #sidebar {
+    width: 240px;
+    min-width: 180px;
+    background: #16213e;
+    border-right: 1px solid #0f3460;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  #sidebarHeader {
+    padding: 10px 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-bottom: 1px solid #0f3460;
+  }
+
+  #windowList {
+    list-style: none;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  #windowList li {
+    padding: 10px 12px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    border-bottom: 1px solid #0f3460;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background 0.1s;
+  }
+
+  #windowList li:hover { background: #0f3460; }
+  #windowList li.active { background: #e94560; color: #fff; }
+
+  #windowList .win-title { font-weight: 600; }
+  #windowList .win-size { font-size: 0.7rem; color: #aaa; margin-top: 2px; }
+  #windowList li.active .win-size { color: #ffcdd2; }
+
+  /* ── Canvas area ── */
+  #canvasArea {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+    background: #0d1117;
+  }
+
+  #placeholder {
+    color: #555;
+    font-size: 1rem;
+    text-align: center;
+    pointer-events: none;
+  }
+
+  #canvasWrapper {
+    position: relative;
+    display: none;
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  #drawCanvas {
+    display: block;
+    max-width: 100%;
+    max-height: calc(100vh - 56px);
+    object-fit: contain;
+    cursor: crosshair;
+    touch-action: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Toolbar ── -->
+<div id="toolbar">
+  <div class="tool-group">
+    <label>Farbe</label>
+    <input type="color" id="colorPicker" value="#ff0000" title="Farbe wählen">
+  </div>
+
+  <div class="tool-group">
+    <label>Stärke <span id="widthVal">4</span>px</label>
+    <input type="range" id="strokeWidth" min="1" max="60" value="4">
+  </div>
+
+  <div class="tool-group">
+    <label>Vorschau</label>
+    <div id="widthPreview"><canvas id="previewCanvas" width="80" height="24"></canvas></div>
+  </div>
+
+  <div class="tool-group">
+    <label>Deckkraft <span id="opacityVal">100</span>%</label>
+    <input type="range" id="opacitySlider" min="10" max="100" value="100">
+  </div>
+
+  <button id="clearBtn">Löschen</button>
+  <button id="refreshBtn">&#x21BB; Aktualisieren</button>
+</div>
+
+<!-- ── Main ── -->
+<div id="main">
+  <div id="sidebar">
+    <div id="sidebarHeader">Fenster</div>
+    <ul id="windowList"></ul>
+  </div>
+
+  <div id="canvasArea">
+    <div id="placeholder">
+      <p>&#8592; Fenster auswählen</p>
+    </div>
+    <div id="canvasWrapper">
+      <canvas id="drawCanvas"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+const socket = io();
+
+// ── State ──────────────────────────────────────────────────────────────────
+let isDrawing = false;
+let localStrokes = [];
+let currentStroke = null;
+let screenshotImg = null;
+let selectedWinId = null;
+
+// ── Controls ───────────────────────────────────────────────────────────────
+const colorPicker    = document.getElementById("colorPicker");
+const strokeWidth    = document.getElementById("strokeWidth");
+const opacitySlider  = document.getElementById("opacitySlider");
+const widthVal       = document.getElementById("widthVal");
+const opacityVal     = document.getElementById("opacityVal");
+const clearBtn       = document.getElementById("clearBtn");
+const refreshBtn     = document.getElementById("refreshBtn");
+const canvas         = document.getElementById("drawCanvas");
+const ctx            = canvas.getContext("2d");
+const previewCanvas  = document.getElementById("previewCanvas");
+const pCtx           = previewCanvas.getContext("2d");
+const windowList     = document.getElementById("windowList");
+const placeholder    = document.getElementById("placeholder");
+const canvasWrapper  = document.getElementById("canvasWrapper");
+
+function getColor()   { return colorPicker.value; }
+function getWidth()   { return parseInt(strokeWidth.value); }
+function getOpacity() { return parseInt(opacitySlider.value) / 100; }
+
+strokeWidth.addEventListener("input", () => {
+  widthVal.textContent = strokeWidth.value;
+  updatePreview();
+});
+
+opacitySlider.addEventListener("input", () => {
+  opacityVal.textContent = opacitySlider.value;
+  updatePreview();
+});
+
+colorPicker.addEventListener("input", updatePreview);
+
+function updatePreview() {
+  pCtx.clearRect(0, 0, 80, 24);
+  pCtx.strokeStyle = getColor();
+  pCtx.lineWidth   = Math.min(getWidth(), 22);
+  pCtx.globalAlpha = getOpacity();
+  pCtx.lineCap     = "round";
+  pCtx.beginPath();
+  pCtx.moveTo(8, 12);
+  pCtx.lineTo(72, 12);
+  pCtx.stroke();
+  pCtx.globalAlpha = 1;
+}
+updatePreview();
+
+// ── Window list ────────────────────────────────────────────────────────────
+async function loadWindows() {
+  try {
+    const res = await fetch("/windows");
+    const windows = await res.json();
+    windowList.innerHTML = "";
+    windows.forEach(w => {
+      const li = document.createElement("li");
+      li.dataset.id = w.id;
+      li.innerHTML = `
+        <div class="win-title">${escHtml(w.title)}</div>
+        <div class="win-size">${w.width}×${w.height}</div>`;
+      li.addEventListener("click", () => selectWindow(w.id, li));
+      windowList.appendChild(li);
+    });
+  } catch (e) {
+    console.error("Fehler beim Laden der Fensterliste:", e);
+  }
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+refreshBtn.addEventListener("click", loadWindows);
+loadWindows();
+
+// ── Select window ──────────────────────────────────────────────────────────
+function selectWindow(winId, li) {
+  document.querySelectorAll("#windowList li").forEach(el => el.classList.remove("active"));
+  li.classList.add("active");
+  selectedWinId = winId;
+  localStrokes = [];
+  socket.emit("select_window", { win_id: winId });
+  loadScreenshot(winId);
+}
+
+function loadScreenshot(winId) {
+  const img = new Image();
+  img.onload = () => {
+    canvas.width  = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    screenshotImg = img;
+    placeholder.style.display  = "none";
+    canvasWrapper.style.display = "block";
+    redraw();
+  };
+  img.onerror = () => {
+    console.error("Screenshot konnte nicht geladen werden");
+  };
+  img.src = `/screenshot/${encodeURIComponent(winId)}?t=${Date.now()}`;
+}
+
+// ── Drawing ────────────────────────────────────────────────────────────────
+function normalizePoint(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (clientX - rect.left) / rect.width,
+    y: (clientY - rect.top)  / rect.height
+  };
+}
+
+function beginStroke(clientX, clientY) {
+  if (!screenshotImg) return;
+  isDrawing = true;
+  currentStroke = {
+    points:  [],
+    color:   getColor(),
+    width:   getWidth(),
+    opacity: getOpacity()
+  };
+  const pt = normalizePoint(clientX, clientY);
+  currentStroke.points.push(pt);
+  socket.emit("stroke_begin", {
+    color:   currentStroke.color,
+    width:   currentStroke.width,
+    opacity: currentStroke.opacity
+  });
+  socket.emit("stroke_point", pt);
+}
+
+function continueStroke(clientX, clientY) {
+  if (!isDrawing || !currentStroke) return;
+  const pt = normalizePoint(clientX, clientY);
+  currentStroke.points.push(pt);
+  socket.emit("stroke_point", pt);
+  redraw();
+}
+
+function endStroke() {
+  if (!isDrawing) return;
+  isDrawing = false;
+  if (currentStroke) {
+    localStrokes.push(currentStroke);
+    currentStroke = null;
+  }
+  socket.emit("stroke_end", {});
+  redraw();
+}
+
+// Mouse
+canvas.addEventListener("mousedown",  e => { e.preventDefault(); beginStroke(e.clientX, e.clientY); });
+canvas.addEventListener("mousemove",  e => continueStroke(e.clientX, e.clientY));
+canvas.addEventListener("mouseup",    () => endStroke());
+canvas.addEventListener("mouseleave", () => endStroke());
+
+// Touch
+canvas.addEventListener("touchstart", e => {
+  e.preventDefault();
+  beginStroke(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: false });
+
+canvas.addEventListener("touchmove", e => {
+  e.preventDefault();
+  continueStroke(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: false });
+
+canvas.addEventListener("touchend", e => { e.preventDefault(); endStroke(); }, { passive: false });
+
+clearBtn.addEventListener("click", () => {
+  socket.emit("clear", {});
+});
+
+// ── Rendering ──────────────────────────────────────────────────────────────
+function drawStroke(ctx, stroke) {
+  const pts = stroke.points;
+  if (pts.length < 1) return;
+  ctx.save();
+  ctx.strokeStyle  = stroke.color;
+  ctx.lineWidth    = stroke.width;
+  ctx.globalAlpha  = stroke.opacity;
+  ctx.lineCap      = "round";
+  ctx.lineJoin     = "round";
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x * canvas.width, pts[0].y * canvas.height);
+  if (pts.length === 1) {
+    // Single dot
+    ctx.arc(pts[0].x * canvas.width, pts[0].y * canvas.height,
+            stroke.width / 2, 0, Math.PI * 2);
+    ctx.fillStyle = stroke.color;
+    ctx.fill();
+  } else {
+    for (let i = 1; i < pts.length; i++) {
+      ctx.lineTo(pts[i].x * canvas.width, pts[i].y * canvas.height);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function redraw() {
+  if (!screenshotImg) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(screenshotImg, 0, 0);
+  for (const s of localStrokes)  drawStroke(ctx, s);
+  if (currentStroke)             drawStroke(ctx, currentStroke);
+}
+
+// ── Socket.IO events (multi-user / remote sync) ────────────────────────────
+socket.on("stroke_point", pt => {
+  // Points from other clients: tracked in a shared stroke (simplified)
+  if (!currentStroke) return;  // We manage our own; ignore echoes
+});
+
+socket.on("stroke_end", () => {
+  // No-op for self; remote clients sync via sync_request on connect
+});
+
+socket.on("clear", () => {
+  localStrokes = [];
+  currentStroke = null;
+  redraw();
+});
+
+socket.on("window_selected", data => {
+  if (data.win_id !== selectedWinId) {
+    loadScreenshot(data.win_id);
+  }
+});
+
+// On connect/reconnect, fetch current drawing state from server
+socket.on("connect", () => {
+  if (selectedWinId) {
+    socket.emit("sync_request", {});
+  }
+});
+
+socket.on("sync_response", data => {
+  localStrokes = data.strokes.map(s => ({
+    points:  s.points,
+    color:   s.color,
+    width:   s.width,
+    opacity: s.opacity
+  }));
+  redraw();
+});
+</script>
+</body>
+</html>
