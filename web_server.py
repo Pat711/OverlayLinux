@@ -1,9 +1,12 @@
 import io
+import logging
 import threading
 from typing import Callable, Optional
 
 from flask import Flask, jsonify, render_template, send_file, Response
 from flask_socketio import SocketIO, emit
+
+logging.getLogger("werkzeug").setLevel(logging.WARNING)
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "overlay-secret"

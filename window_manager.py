@@ -34,7 +34,9 @@ def list_windows() -> List[WindowInfo]:
             desktop = int(parts[1])
         except ValueError:
             continue
-        if desktop == -1:
+        # desktop == -1 means "sticky" (visible on all desktops, e.g. Firefox).
+        # Exclude only non-normal window types (desktop, dock, etc.).
+        if desktop == -1 and not _is_normal_window(win_id):
             continue
         title = parts[8].strip()
         if not title or title == "N/A":
@@ -53,6 +55,17 @@ def list_windows() -> List[WindowInfo]:
 
     windows.sort(key=lambda w: w.title.lower())
     return windows
+
+
+def _is_normal_window(win_id: str) -> bool:
+    try:
+        result = subprocess.run(
+            ["xprop", "-id", win_id, "_NET_WM_WINDOW_TYPE"],
+            capture_output=True, text=True, timeout=3
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return True  # assume normal if xprop unavailable
+    return "_NET_WM_WINDOW_TYPE_NORMAL" in result.stdout
 
 
 def _get_geometry_xwininfo(win_id: str) -> Optional[Tuple[int, int, int, int]]:

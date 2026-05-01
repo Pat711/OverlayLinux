@@ -304,6 +304,8 @@ function selectWindow(winId, li) {
   loadScreenshot(winId);
 }
 
+let _screenshotTimer = null;
+
 function loadScreenshot(winId) {
   const img = new Image();
   img.onload = () => {
@@ -316,6 +318,24 @@ function loadScreenshot(winId) {
   };
   img.onerror = () => {
     console.error("Screenshot konnte nicht geladen werden");
+  };
+  img.src = `/screenshot/${encodeURIComponent(winId)}?t=${Date.now()}`;
+
+  // Auto-refresh: start timer on first load, restart if window changed
+  if (_screenshotTimer) clearInterval(_screenshotTimer);
+  _screenshotTimer = setInterval(() => refreshScreenshot(winId), 1000);
+}
+
+function refreshScreenshot(winId) {
+  if (!selectedWinId || isDrawing) return;
+  const img = new Image();
+  img.onload = () => {
+    if (img.naturalWidth !== canvas.width || img.naturalHeight !== canvas.height) {
+      canvas.width  = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+    }
+    screenshotImg = img;
+    redraw();
   };
   img.src = `/screenshot/${encodeURIComponent(winId)}?t=${Date.now()}`;
 }
