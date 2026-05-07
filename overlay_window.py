@@ -1,3 +1,5 @@
+import math
+
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtCore import Qt, pyqtSignal, QTimer
 from PyQt5.QtGui import QPainter, QColor, QPen, QPainterPath
@@ -91,6 +93,8 @@ class OverlayWindow(QWidget):
         if w == 0 or h == 0:
             return
 
+        self._paint_grid(painter, w, h)
+
         for stroke in self._state.get_strokes():
             if len(stroke.points) < 2:
                 continue
@@ -105,3 +109,75 @@ class OverlayWindow(QWidget):
             for px, py in stroke.points[1:]:
                 path.lineTo(px * w, py * h)
             painter.drawPath(path)
+
+    def _paint_grid(self, painter: QPainter, w: int, h: int) -> None:
+        cfg = self._state.get_grid_config()
+        if not cfg.enabled:
+            return
+
+        color = QColor(cfg.color)
+        color.setAlphaF(cfg.opacity)
+        painter.setPen(QPen(color, 1))
+
+        s = cfg.cell_size
+        if cfg.type == "rect":
+            path = QPainterPath()
+            x = 0.0
+            while x <= w:
+                path.moveTo(x, 0); path.lineTo(x, h)
+                x += s
+            y = 0.0
+            while y <= h:
+                path.moveTo(0, y); path.lineTo(w, y)
+                y += s
+            painter.drawPath(path)
+
+        elif cfg.type == "hex":
+            if cfg.hex_style == "flat":
+                self._paint_flat_hex_grid(painter, w, h, s)
+            else:
+                self._paint_pointy_hex_grid(painter, w, h, s)
+
+    def _paint_flat_hex_grid(self, painter: QPainter, w: int, h: int, r: int) -> None:
+        col_w = r * 1.5
+        row_h = r * math.sqrt(3)
+        col = 0
+        while col * col_w - r < w + r:
+            cx = col * col_w
+            row = 0
+            while True:
+                cy = row * row_h + (row_h / 2 if col % 2 else 0)
+                if cy - r > h + r:
+                    break
+                self._draw_hex(painter, cx, cy, r, flat=True)
+                row += 1
+            col += 1
+
+    def _paint_pointy_hex_grid(self, painter: QPainter, w: int, h: int, r: int) -> None:
+        col_w = r * math.sqrt(3)
+        row_h = r * 1.5
+        row = 0
+        while row * row_h - r < h + r:
+            cy = row * row_h
+            col = 0
+            while True:
+                cx = col * col_w + (col_w / 2 if row % 2 else 0)
+                if cx - r > w + r:
+                    break
+                self._draw_hex(painter, cx, cy, r, flat=False)
+                col += 1
+            row += 1
+
+    def _draw_hex(self, painter: QPainter, cx: float, cy: float, r: int, flat: bool) -> None:
+        offset = 0 if flat else 30
+        path = QPainterPath()
+        for i in range(6):
+            angle = math.radians(60 * i + offset)
+            x = cx + r * math.cos(angle)
+            y = cy + r * math.sin(angle)
+            if i == 0:
+                path.moveTo(x, y)
+            else:
+                path.lineTo(x, y)
+        path.closeSubpath()
+        painter.drawPath(path)

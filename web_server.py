@@ -88,13 +88,24 @@ def on_clear(_data):
 @socketio.on("sync_request")
 def on_sync_request(_data):
     strokes = _drawing_state.get_strokes()
+    cfg = _drawing_state.get_grid_config()
     emit("sync_response", {
         "strokes": [
             {"points": s.points, "color": s.color,
              "width": s.width, "opacity": s.opacity}
             for s in strokes
-        ]
+        ],
+        "grid": {
+            "enabled": cfg.enabled, "type": cfg.type, "hexStyle": cfg.hex_style,
+            "color": cfg.color, "opacity": cfg.opacity, "cellSize": cfg.cell_size,
+        },
     })
+
+
+@socketio.on("set_grid")
+def on_set_grid(data):
+    _drawing_state.set_grid_config(data)
+    emit("grid_updated", data, broadcast=True)
 
 
 # ── Startup ─────────────────────────────────────────────────────────────────

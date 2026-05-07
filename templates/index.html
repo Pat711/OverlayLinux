@@ -164,6 +164,146 @@
     cursor: crosshair;
     touch-action: none;
   }
+
+  /* ── Tools panel (right, collapsible) ── */
+  #toolsPanel {
+    display: flex;
+    flex-direction: row;
+    flex-shrink: 0;
+    background: #16213e;
+    border-left: 1px solid #0f3460;
+    overflow: hidden;
+    width: 32px;           /* collapsed: only the toggle tab */
+    transition: width 0.25s ease;
+  }
+
+  #toolsPanel.open { width: 252px; }
+
+  #toolsToggle {
+    width: 32px;
+    min-width: 32px;
+    background: none;
+    border: none;
+    border-right: 1px solid #0f3460;
+    cursor: pointer;
+    color: #aaa;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    writing-mode: vertical-rl;
+    letter-spacing: 0.1em;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #888;
+    gap: 6px;
+    padding: 12px 0;
+    transition: color 0.15s;
+  }
+  #toolsToggle:hover { color: #e0e0e0; }
+
+  #toolsContent {
+    width: 220px;
+    min-width: 220px;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .panel-section {
+    border: 1px solid #0f3460;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .panel-section-header {
+    padding: 8px 10px;
+    background: #0f3460;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #aaa;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-section-body {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .panel-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.8rem;
+  }
+
+  .panel-row label { color: #aaa; white-space: nowrap; }
+
+  .panel-row input[type=range] { width: 80px; }
+
+  .panel-row input[type=color] {
+    width: 36px; height: 28px;
+    border: 2px solid #444;
+    border-radius: 4px;
+    cursor: pointer;
+    background: none;
+    padding: 1px;
+  }
+
+  .panel-row select {
+    background: #1a1a2e;
+    color: #e0e0e0;
+    border: 1px solid #0f3460;
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+
+  .toggle-switch {
+    position: relative;
+    width: 36px; height: 20px;
+    flex-shrink: 0;
+  }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-switch .slider {
+    position: absolute; inset: 0;
+    background: #333;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .toggle-switch .slider::before {
+    content: "";
+    position: absolute;
+    width: 14px; height: 14px;
+    left: 3px; top: 3px;
+    background: #888;
+    border-radius: 50%;
+    transition: transform 0.2s, background 0.2s;
+  }
+  .toggle-switch input:checked + .slider { background: #e94560; }
+  .toggle-switch input:checked + .slider::before {
+    transform: translateX(16px);
+    background: #fff;
+  }
+
+  .val-badge {
+    font-size: 0.72rem;
+    color: #888;
+    min-width: 28px;
+    text-align: right;
+  }
 </style>
 </head>
 <body>
@@ -209,6 +349,59 @@
       <canvas id="drawCanvas"></canvas>
     </div>
   </div>
+
+  <!-- ── Tools panel ── -->
+  <div id="toolsPanel">
+    <button id="toolsToggle" title="Werkzeuge ein-/ausblenden">Werkzeuge</button>
+
+    <div id="toolsContent">
+
+      <!-- Grid section -->
+      <div class="panel-section">
+        <div class="panel-section-header">
+          &#9783; Gitter
+        </div>
+        <div class="panel-section-body">
+          <div class="panel-row">
+            <label>Aktiv</label>
+            <label class="toggle-switch">
+              <input type="checkbox" id="gridEnabled">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="panel-row">
+            <label>Typ</label>
+            <select id="gridType">
+              <option value="rect">Rechteckig</option>
+              <option value="hex">Hexagonal</option>
+            </select>
+          </div>
+          <div class="panel-row" id="hexStyleRow">
+            <label>Hex-Stil</label>
+            <select id="hexStyle">
+              <option value="flat">Flach</option>
+              <option value="pointy">Spitz</option>
+            </select>
+          </div>
+          <div class="panel-row">
+            <label>Feldgröße</label>
+            <input type="range" id="gridSize" min="10" max="200" value="50">
+            <span class="val-badge" id="gridSizeVal">50px</span>
+          </div>
+          <div class="panel-row">
+            <label>Farbe</label>
+            <input type="color" id="gridColor" value="#ffffff">
+          </div>
+          <div class="panel-row">
+            <label>Deckkraft</label>
+            <input type="range" id="gridOpacity" min="5" max="100" value="50">
+            <span class="val-badge" id="gridOpacityVal">50%</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /toolsContent -->
+  </div><!-- /toolsPanel -->
 </div>
 
 <script>
@@ -220,6 +413,15 @@ let localStrokes = [];
 let currentStroke = null;
 let screenshotImg = null;
 let selectedWinId = null;
+
+let gridConfig = {
+  enabled:  false,
+  type:     "rect",
+  hexStyle: "flat",
+  color:    "#ffffff",
+  opacity:  0.5,
+  cellSize: 50,
+};
 
 // ── Controls ───────────────────────────────────────────────────────────────
 const colorPicker    = document.getElementById("colorPicker");
@@ -266,6 +468,72 @@ function updatePreview() {
   pCtx.globalAlpha = 1;
 }
 updatePreview();
+
+// ── Tools panel toggle ──────────────────────────────────────────────────────
+const toolsPanel  = document.getElementById("toolsPanel");
+const toolsToggle = document.getElementById("toolsToggle");
+toolsToggle.addEventListener("click", () => toolsPanel.classList.toggle("open"));
+
+// ── Grid controls ──────────────────────────────────────────────────────────
+const gridEnabled    = document.getElementById("gridEnabled");
+const gridType       = document.getElementById("gridType");
+const hexStyle       = document.getElementById("hexStyle");
+const hexStyleRow    = document.getElementById("hexStyleRow");
+const gridSize       = document.getElementById("gridSize");
+const gridSizeVal    = document.getElementById("gridSizeVal");
+const gridColor      = document.getElementById("gridColor");
+const gridOpacity    = document.getElementById("gridOpacity");
+const gridOpacityVal = document.getElementById("gridOpacityVal");
+
+function syncGridControlsToState() {
+  gridEnabled.checked     = gridConfig.enabled;
+  gridType.value          = gridConfig.type;
+  hexStyle.value          = gridConfig.hexStyle;
+  gridSize.value          = gridConfig.cellSize;
+  gridSizeVal.textContent = gridConfig.cellSize + "px";
+  gridColor.value         = gridConfig.color;
+  gridOpacity.value       = Math.round(gridConfig.opacity * 100);
+  gridOpacityVal.textContent = Math.round(gridConfig.opacity * 100) + "%";
+  hexStyleRow.style.display = gridConfig.type === "hex" ? "" : "none";
+}
+syncGridControlsToState();
+
+function emitGrid() {
+  socket.emit("set_grid", gridConfig);
+}
+
+gridEnabled.addEventListener("change", () => {
+  gridConfig.enabled = gridEnabled.checked;
+  redraw(); emitGrid();
+});
+
+gridType.addEventListener("change", () => {
+  gridConfig.type = gridType.value;
+  hexStyleRow.style.display = gridConfig.type === "hex" ? "" : "none";
+  redraw(); emitGrid();
+});
+
+hexStyle.addEventListener("change", () => {
+  gridConfig.hexStyle = hexStyle.value;
+  redraw(); emitGrid();
+});
+
+gridSize.addEventListener("input", () => {
+  gridConfig.cellSize = parseInt(gridSize.value);
+  gridSizeVal.textContent = gridSize.value + "px";
+  redraw(); emitGrid();
+});
+
+gridColor.addEventListener("input", () => {
+  gridConfig.color = gridColor.value;
+  redraw(); emitGrid();
+});
+
+gridOpacity.addEventListener("input", () => {
+  gridConfig.opacity = parseInt(gridOpacity.value) / 100;
+  gridOpacityVal.textContent = gridOpacity.value + "%";
+  redraw(); emitGrid();
+});
 
 // ── Window list ────────────────────────────────────────────────────────────
 async function loadWindows() {
@@ -321,7 +589,6 @@ function loadScreenshot(winId) {
   };
   img.src = `/screenshot/${encodeURIComponent(winId)}?t=${Date.now()}`;
 
-  // Auto-refresh: start timer on first load, restart if window changed
   if (_screenshotTimer) clearInterval(_screenshotTimer);
   _screenshotTimer = setInterval(() => refreshScreenshot(winId), 1000);
 }
@@ -410,6 +677,71 @@ clearBtn.addEventListener("click", () => {
   socket.emit("clear", {});
 });
 
+// ── Grid rendering ─────────────────────────────────────────────────────────
+function drawGrid(cfg) {
+  if (!cfg.enabled) return;
+  ctx.save();
+  ctx.strokeStyle = cfg.color;
+  ctx.globalAlpha = cfg.opacity;
+  ctx.lineWidth   = 1;
+
+  if (cfg.type === "rect") {
+    ctx.beginPath();
+    for (let x = 0; x <= canvas.width; x += cfg.cellSize) {
+      ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height);
+    }
+    for (let y = 0; y <= canvas.height; y += cfg.cellSize) {
+      ctx.moveTo(0, y); ctx.lineTo(canvas.width, y);
+    }
+    ctx.stroke();
+  } else {
+    const r = cfg.cellSize;
+    if (cfg.hexStyle === "flat") {
+      drawFlatHexGrid(r);
+    } else {
+      drawPointyHexGrid(r);
+    }
+  }
+  ctx.restore();
+}
+
+function hexPath(cx, cy, r, flat) {
+  const offset = flat ? 0 : 30;
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI / 180) * (60 * i + offset);
+    const x = cx + r * Math.cos(a);
+    const y = cy + r * Math.sin(a);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.stroke();
+}
+
+function drawFlatHexGrid(r) {
+  const colW = r * 1.5;
+  const rowH = r * Math.sqrt(3);
+  for (let col = -1; col * colW - r < canvas.width + r; col++) {
+    for (let row = -1; ; row++) {
+      const cy = row * rowH + (col % 2 !== 0 ? rowH / 2 : 0);
+      if (cy - r > canvas.height + r) break;
+      hexPath(col * colW, cy, r, true);
+    }
+  }
+}
+
+function drawPointyHexGrid(r) {
+  const colW = r * Math.sqrt(3);
+  const rowH = r * 1.5;
+  for (let row = -1; row * rowH - r < canvas.height + r; row++) {
+    for (let col = -1; ; col++) {
+      const cx = col * colW + (row % 2 !== 0 ? colW / 2 : 0);
+      if (cx - r > canvas.width + r) break;
+      hexPath(cx, row * rowH, r, false);
+    }
+  }
+}
+
 // ── Rendering ──────────────────────────────────────────────────────────────
 function drawStroke(ctx, stroke) {
   const pts = stroke.points;
@@ -423,7 +755,6 @@ function drawStroke(ctx, stroke) {
   ctx.beginPath();
   ctx.moveTo(pts[0].x * canvas.width, pts[0].y * canvas.height);
   if (pts.length === 1) {
-    // Single dot
     ctx.arc(pts[0].x * canvas.width, pts[0].y * canvas.height,
             stroke.width / 2, 0, Math.PI * 2);
     ctx.fillStyle = stroke.color;
@@ -441,19 +772,17 @@ function redraw() {
   if (!screenshotImg) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(screenshotImg, 0, 0);
+  drawGrid(gridConfig);
   for (const s of localStrokes)  drawStroke(ctx, s);
   if (currentStroke)             drawStroke(ctx, currentStroke);
 }
 
-// ── Socket.IO events (multi-user / remote sync) ────────────────────────────
+// ── Socket.IO events ───────────────────────────────────────────────────────
 socket.on("stroke_point", pt => {
-  // Points from other clients: tracked in a shared stroke (simplified)
-  if (!currentStroke) return;  // We manage our own; ignore echoes
+  if (!currentStroke) return;
 });
 
-socket.on("stroke_end", () => {
-  // No-op for self; remote clients sync via sync_request on connect
-});
+socket.on("stroke_end", () => {});
 
 socket.on("clear", () => {
   localStrokes = [];
@@ -467,11 +796,21 @@ socket.on("window_selected", data => {
   }
 });
 
-// On connect/reconnect, fetch current drawing state from server
+socket.on("grid_updated", data => {
+  gridConfig = {
+    enabled:  data.enabled  ?? gridConfig.enabled,
+    type:     data.type     ?? gridConfig.type,
+    hexStyle: data.hexStyle ?? gridConfig.hexStyle,
+    color:    data.color    ?? gridConfig.color,
+    opacity:  data.opacity  ?? gridConfig.opacity,
+    cellSize: data.cellSize ?? gridConfig.cellSize,
+  };
+  syncGridControlsToState();
+  redraw();
+});
+
 socket.on("connect", () => {
-  if (selectedWinId) {
-    socket.emit("sync_request", {});
-  }
+  if (selectedWinId) socket.emit("sync_request", {});
 });
 
 socket.on("sync_response", data => {
@@ -481,6 +820,10 @@ socket.on("sync_response", data => {
     width:   s.width,
     opacity: s.opacity
   }));
+  if (data.grid) {
+    gridConfig = { ...gridConfig, ...data.grid };
+    syncGridControlsToState();
+  }
   redraw();
 });
 </script>
